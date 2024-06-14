@@ -18,4 +18,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "eudi-lib-android-wallet-core"
-include ':wallet-core'
+include(":wallet-core")
