@@ -1,0 +1,3 @@
+[submodule "eudi-lib-jvm-openid4vci-kt"]
+	path = eudi-lib-jvm-openid4vci-kt
+	url = git@github.com:TICESoftware/eudi-lib-jvm-openid4vci-kt.git
