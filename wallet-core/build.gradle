@@ -235,6 +235,12 @@ tasks.register('dokkaJavadocJar', Jar.class) {
     archiveClassifier.set("javadoc")
 }
 
+tasks.register('buildLocalDependencies', Exec.class) {
+    commandLine '../gradlew', '-p', '../eudi-lib-jvm-openid4vci-kt', 'jar'
+}
+
+build.dependsOn(buildLocalDependencies)
+
 mavenPublishing {
     pom {
         ciManagement {
