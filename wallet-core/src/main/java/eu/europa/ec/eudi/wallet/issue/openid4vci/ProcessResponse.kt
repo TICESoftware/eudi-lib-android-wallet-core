@@ -81,7 +81,7 @@ internal class ProcessResponse(
         when (outcome) {
             is SubmissionOutcome.Success -> when (val credential = outcome.credentials[0]) {
                 is IssuedCredential.Issued -> try {
-                    val cborBytes = Base64.getUrlDecoder().decode(credential.credential)
+                    val cborBytes = Base64.getMimeDecoder().decode(credential.credential)
                     logger?.d(TAG, "CBOR bytes: ${Hex.toHexString(cborBytes)}")
                     documentManager.storeIssuedDocument(unsignedDocument, cborBytes)
                         .notifyListener(unsignedDocument)
