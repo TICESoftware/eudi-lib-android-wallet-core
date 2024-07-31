@@ -16,24 +16,33 @@
 
 package eu.europa.ec.eudi.wallet.issue.openid4vci
 
+import com.nimbusds.jose.crypto.RSASSAVerifier
+import com.nimbusds.jose.jwk.RSAKey
 import eu.europa.ec.eudi.openid4vci.IssuedCredential
 import eu.europa.ec.eudi.openid4vci.SubmissionOutcome
+import eu.europa.ec.eudi.sdjwt.SdJwtVerifier
+import eu.europa.ec.eudi.sdjwt.asJwtVerifier
 import eu.europa.ec.eudi.wallet.document.DocumentId
 import eu.europa.ec.eudi.wallet.document.DocumentManager
 import eu.europa.ec.eudi.wallet.document.StoreDocumentResult
 import eu.europa.ec.eudi.wallet.document.UnsignedDocument
 import eu.europa.ec.eudi.wallet.issue.openid4vci.IssueEvent.Companion.documentFailed
-import eu.europa.ec.eudi.wallet.issue.openid4vci.OpenId4VciManager.Companion.TAG
 import eu.europa.ec.eudi.wallet.logging.Logger
-import eu.europa.ec.eudi.wallet.logging.d
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
-import org.bouncycastle.util.encoders.Hex
+import org.json.JSONObject
+import java.io.ByteArrayInputStream
 import java.io.Closeable
-import java.util.*
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
+import java.util.Base64
 import kotlin.coroutines.resume
+
 
 internal class ProcessResponse(
     val documentManager: DocumentManager,
@@ -54,7 +63,10 @@ internal class ProcessResponse(
         }
     }
 
-    suspend fun process(unsignedDocument: UnsignedDocument, outcomeResult: Result<SubmissionOutcome>) {
+    suspend fun process(
+        unsignedDocument: UnsignedDocument,
+        outcomeResult: Result<SubmissionOutcome>
+    ) {
         try {
             processSubmittedRequest(unsignedDocument, outcomeResult.getOrThrow())
         } catch (e: Throwable) {
@@ -81,10 +93,33 @@ internal class ProcessResponse(
         when (outcome) {
             is SubmissionOutcome.Success -> when (val credential = outcome.credentials[0]) {
                 is IssuedCredential.Issued -> try {
-                    val cborBytes = Base64.getMimeDecoder().decode(credential.credential)
-                    logger?.d(TAG, "CBOR bytes: ${Hex.toHexString(cborBytes)}")
-                    documentManager.storeIssuedDocument(unsignedDocument, cborBytes)
-                        .notifyListener(unsignedDocument)
+                    // sdjwt
+
+                    val headerString = credential.credential.split(".").first()
+                    val headerJson = JSONObject(String(Base64.getUrlDecoder().decode(headerString)))
+                    val keyString = headerJson.getJSONArray("x5c").getString(0)
+
+                    val key = """-----BEGIN CERTIFICATE-----MIICeTCCAiCgAwIBAgIUB5E9QVZtmUYcDtCjKB/H3VQv72gwCgYIKoZIzj0EAwIwgYgxCzAJBgNVBAYTAkRFMQ8wDQYDVQQHDAZCZXJsaW4xHTAbBgNVBAoMFEJ1bmRlc2RydWNrZXJlaSBHbWJIMREwDwYDVQQLDAhUIENTIElERTE2MDQGA1UEAwwtU1BSSU5EIEZ1bmtlIEVVREkgV2FsbGV0IFByb3RvdHlwZSBJc3N1aW5nIENBMB4XDTI0MDUzMTA2NDgwOVoXDTM0MDUyOTA2NDgwOVowgYgxCzAJBgNVBAYTAkRFMQ8wDQYDVQQHDAZCZXJsaW4xHTAbBgNVBAoMFEJ1bmRlc2RydWNrZXJlaSBHbWJIMREwDwYDVQQLDAhUIENTIElERTE2MDQGA1UEAwwtU1BSSU5EIEZ1bmtlIEVVREkgV2FsbGV0IFByb3RvdHlwZSBJc3N1aW5nIENBMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYGzdwFDnc7+Kn5ibAvCOM8ke77VQxqfMcwZL8IaIA+WCROcCfmY/giH92qMru5p/kyOivE0RC/IbdMONvDoUyaNmMGQwHQYDVR0OBBYEFNRWGMCJOOgOWIQYyXZiv6u7xZC+MB8GA1UdIwQYMBaAFNRWGMCJOOgOWIQYyXZiv6u7xZC+MBIGA1UdEwEB/wQIMAYBAf8CAQAwDgYDVR0PAQH/BAQDAgGGMAoGCCqGSM49BAMCA0cAMEQCIGEm7wkZKHt/atb4MdFnXW6yrnwMUT2u136gdtl10Y6hAiBuTFqvVYth1rbxzCP0xWZHmQK9kVyxn8GPfX27EIzzsw==-----END CERTIFICATE-----"""
+
+                    val certificateFactory: CertificateFactory = CertificateFactory.getInstance("X.509")
+                    val certificate = certificateFactory.generateCertificate(ByteArrayInputStream(key.toByteArray())) as X509Certificate
+
+                    val rsaKey = RSAKey.parse(certificate)
+                    val jwtSignatureVerifier = RSASSAVerifier(rsaKey).asJwtVerifier()
+
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val verifiedIssuanceSdJwt = SdJwtVerifier.verifyIssuance(
+                            jwtSignatureVerifier,
+                            credential.credential
+                        ).getOrThrow()
+
+//                        logger?.d(TAG, "CBOR bytes: ${Hex.toHexString(cborBytes)}")
+                        documentManager.storeIssuedDocument(
+                            unsignedDocument,
+                            credential.credential.toByteArray()
+                        )
+                            .notifyListener(unsignedDocument)
+                    }
                 } catch (e: Throwable) {
                     documentManager.deleteDocumentById(unsignedDocument.id)
                     listener(documentFailed(unsignedDocument, e))
@@ -92,7 +127,10 @@ internal class ProcessResponse(
 
                 is IssuedCredential.Deferred -> {
                     val contextToStore = deferredContextCreator.create(credential)
-                    documentManager.storeDeferredDocument(unsignedDocument, contextToStore.toByteArray())
+                    documentManager.storeDeferredDocument(
+                        unsignedDocument,
+                        contextToStore.toByteArray()
+                    )
                         .notifyListener(unsignedDocument, isDeferred = true)
                 }
             }
@@ -114,6 +152,10 @@ internal class ProcessResponse(
         }
     }
 
+    private fun isSdJwt(credential: String): Boolean {
+        return credential.contains("~")
+    }
+
     private fun UserAuthRequiredException.toIssueEvent(
         unsignedDocument: UnsignedDocument,
     ): IssueEvent.DocumentRequiresUserAuth {
@@ -125,14 +167,29 @@ internal class ProcessResponse(
         )
     }
 
-    private fun StoreDocumentResult.notifyListener(unsignedDocument: UnsignedDocument, isDeferred: Boolean = false) =
+    private fun StoreDocumentResult.notifyListener(
+        unsignedDocument: UnsignedDocument,
+        isDeferred: Boolean = false
+    ) =
         when (this) {
             is StoreDocumentResult.Success -> {
                 issuedDocumentIds.add(documentId)
                 if (isDeferred) {
-                    listener(IssueEvent.DocumentDeferred(documentId, unsignedDocument.name, unsignedDocument.docType))
+                    listener(
+                        IssueEvent.DocumentDeferred(
+                            documentId,
+                            unsignedDocument.name,
+                            unsignedDocument.docType
+                        )
+                    )
                 } else {
-                    listener(IssueEvent.DocumentIssued(documentId, unsignedDocument.name, unsignedDocument.docType))
+                    listener(
+                        IssueEvent.DocumentIssued(
+                            documentId,
+                            unsignedDocument.name,
+                            unsignedDocument.docType
+                        )
+                    )
                 }
             }
 
