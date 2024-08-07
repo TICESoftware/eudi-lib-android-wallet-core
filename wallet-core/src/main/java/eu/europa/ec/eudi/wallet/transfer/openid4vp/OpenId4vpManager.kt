@@ -127,7 +127,7 @@ import java.util.concurrent.Executor
 class OpenId4vpManager(
     context: Context,
     openId4VpConfig: OpenId4VpConfig,
-    val responseGenerator: OpenId4VpCBORResponseGeneratorImpl,
+    val responseGenerator: OpenId4VpSdJwtAndMDocGenerator,
 ) : TransferEvent.Listenable {
 
     var logger: Logger? = null
@@ -146,7 +146,8 @@ class OpenId4vpManager(
             transferEventListeners.onTransferEvent(result)
         }
     }
-    private val siopOpenId4Vp = SiopOpenId4Vp(openId4VpConfig.toSiopOpenId4VPConfig(), ktorHttpClientFactory)
+    private val siopOpenId4Vp =
+        SiopOpenId4Vp(openId4VpConfig.toSiopOpenId4VPConfig(), ktorHttpClientFactory)
     private var resolvedRequestObject: ResolvedRequestObject? = null
     private var mdocGeneratedNonce: String? = null
 
@@ -192,16 +193,36 @@ class OpenId4vpManager(
                                 when (requestObject) {
                                     is ResolvedRequestObject.OpenId4VPAuthorization -> {
                                         logger?.d(TAG, "OpenId4VPAuthorization Request received")
-                                        val request = OpenId4VpRequest(
-                                            requestObject,
-                                            requestObject.toSessionTranscript()
-                                        )
-                                        onResultUnderExecutor(
-                                            TransferEvent.RequestReceived(
-                                                responseGenerator.parseRequest(request),
-                                                request
-                                            )
-                                        )
+
+                                        val format =
+                                            requestObject.presentationDefinition.inputDescriptors.first().format?.json //TODO Format Type nutzen
+                                        when (format) {
+                                            "mso_mdoc" -> {
+                                                val request = OpenId4VpRequest(
+                                                    requestObject,
+                                                    requestObject.toSessionTranscript()
+                                                )
+                                                onResultUnderExecutor(
+                                                    TransferEvent.RequestReceived(
+                                                        responseGenerator.parseRequest(request),
+                                                        request
+                                                    )
+                                                )
+                                            }
+
+                                            "vc+sd-jwt" -> {
+                                                val request = OpenId4VpSdJwtRequest(requestObject)
+                                                onResultUnderExecutor(
+                                                    TransferEvent.RequestReceived(
+                                                        responseGenerator.parseRequest(request),
+                                                        request
+                                                    )
+                                                )                                            }
+
+                                            else -> {
+                                                throw NotImplementedError(message = "Not supported: ${format}")
+                                            }
+                                        }
                                     }
 
                                     is ResolvedRequestObject.SiopAuthentication -> {
@@ -363,7 +384,7 @@ class OpenId4vpManager(
         val responseUri =
             (this.responseMode as ResponseMode.DirectPostJwt?)?.responseURI?.toString()
                 ?: ""
-        val nonce = this.nonce
+        val nonce = this.nonce //TODO MAYBE THIS NONCE
         val mdocGeneratedNonce = Openid4VpUtils.generateMdocGeneratedNonce().also {
             mdocGeneratedNonce = it
         }

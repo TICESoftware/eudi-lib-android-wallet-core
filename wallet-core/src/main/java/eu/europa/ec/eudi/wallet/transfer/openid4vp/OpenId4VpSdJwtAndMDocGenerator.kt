@@ -4,35 +4,39 @@ import eu.europa.ec.eudi.iso18013.transfer.DisclosedDocuments
 import eu.europa.ec.eudi.iso18013.transfer.RequestedDocumentData
 import eu.europa.ec.eudi.iso18013.transfer.ResponseResult
 import eu.europa.ec.eudi.iso18013.transfer.readerauth.ReaderTrustStore
+import eu.europa.ec.eudi.iso18013.transfer.response.Request
 import eu.europa.ec.eudi.iso18013.transfer.response.ResponseGenerator
 
 class OpenId4VpSdJwtAndMDocGenerator(
     private val mDocGenerator: OpenId4VpCBORResponseGeneratorImpl,
     private val sdJwtGenerator: OpenId4VpSdJwtResponseGeneratorImpl
-) : ResponseGenerator<OpenId4VpRequest>() {
+) {
 
-    override fun createResponse(disclosedDocuments: DisclosedDocuments): ResponseResult {
+    fun createResponse(disclosedDocuments: DisclosedDocuments): ResponseResult {
         return mDocGenerator.createResponse(disclosedDocuments)
     }
 
-    override fun setReaderTrustStore(readerTrustStore: ReaderTrustStore): ResponseGenerator<OpenId4VpRequest> {
-        return mDocGenerator.setReaderTrustStore(readerTrustStore)
+    fun setReaderTrustStore(readerTrustStore: ReaderTrustStore) {
+        sdJwtGenerator.setReaderTrustStore(readerTrustStore)
+        mDocGenerator.setReaderTrustStore(readerTrustStore)
     }
 
-    override fun parseRequest(request: OpenId4VpRequest): RequestedDocumentData {
-        request.openId4VPAuthorization
-            .presentationDefinition
-            .inputDescriptors.forEach { inputDescriptor ->
-                return when (inputDescriptor.format?.json) {
-                    "mso_mdoc" -> { mDocGenerator.parseRequest(request) }
-                    "vc+sd-jwt" -> { sdJwtGenerator.parseRequest(request) }
+    internal fun getOpenid4VpX509CertificateTrust() = openid4VpX509CertificateTrust
 
-                    else -> {
-                        throw NotImplementedError(message = "Not supported: ${inputDescriptor.format?.json}")
-                    }
-                }
+
+    fun parseRequest(request: Request): RequestedDocumentData {
+        when (request) {
+            is OpenId4VpRequest -> {
+                mDocGenerator.parseRequest(request)
             }
 
-        throw IllegalArgumentException("Empty input descriptors")
+            is OpenId4VpSdJwtRequest -> {
+                sdJwtGenerator.parseRequest(request)
+            }
+
+            else -> {
+                throw NotImplementedError(message = "Not supported: ${request::class.simpleName}")
+            }
+        }
     }
 }

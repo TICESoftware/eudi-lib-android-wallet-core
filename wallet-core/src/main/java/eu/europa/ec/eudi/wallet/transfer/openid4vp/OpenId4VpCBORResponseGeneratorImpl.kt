@@ -73,21 +73,6 @@ class OpenId4VpCBORResponseGeneratorImpl(
         this.readerTrustStore = readerTrustStore
     }
 
-    /**
-     * Set a trust store so that reader authentication can be performed.
-     *
-     * If it is not provided, reader authentication will not be performed.
-     *
-     * @param readerTrustStore a trust store for reader authentication, e.g. DefaultReaderTrustStore
-     */
-    fun readerTrustStore(readerTrustStore: ReaderTrustStore) = apply {
-        openid4VpX509CertificateTrust.setReaderTrustStore(readerTrustStore)
-        this.readerTrustStore = readerTrustStore
-    }
-
-    internal fun getOpenid4VpX509CertificateTrust() = openid4VpX509CertificateTrust
-
-
     private val secureAreaRepository: SecureAreaRepository by lazy {
         SecureAreaRepository().apply {
             addImplementation(secureArea)

@@ -22,7 +22,7 @@ class OpenId4VpSdJwtResponseGeneratorImpl(
     private val storageEngine: StorageEngine,
     private val secureArea: AndroidKeystoreSecureArea,
     private val logger: Logger? = null
-) : ResponseGenerator<OpenId4VpRequest>() {
+) : ResponseGenerator<OpenId4VpSdJwtRequest>() {
     private var readerTrustStore: ReaderTrustStore? = null
     private val openid4VpX509CertificateTrust = Openid4VpX509CertificateTrust(readerTrustStore)
     private var sessionTranscript: SessionTranscriptBytes? = null
@@ -31,13 +31,13 @@ class OpenId4VpSdJwtResponseGeneratorImpl(
         TODO("Not yet implemented")
     }
 
-    override fun setReaderTrustStore(readerTrustStore: ReaderTrustStore): ResponseGenerator<OpenId4VpRequest> {
+    override fun setReaderTrustStore(readerTrustStore: ReaderTrustStore): ResponseGenerator<OpenId4VpSdJwtRequest> {
         TODO("Not yet implemented")
     }
 
-    override fun parseRequest(request: OpenId4VpRequest): RequestedDocumentData {
-        sessionTranscript = request.sessionTranscript
+    internal fun getOpenid4VpX509CertificateTrust() = openid4VpX509CertificateTrust
 
+    override fun parseRequest(request: OpenId4VpSdJwtRequest): RequestedDocumentData {
         val inputDescriptors =
             request.openId4VPAuthorization.presentationDefinition.inputDescriptors
                 .filter { inputDescriptor ->
