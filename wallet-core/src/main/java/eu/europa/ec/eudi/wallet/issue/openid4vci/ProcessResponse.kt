@@ -16,18 +16,25 @@
 
 package eu.europa.ec.eudi.wallet.issue.openid4vci
 
+import com.android.identity.util.CborUtil
+import com.nimbusds.jose.crypto.ECDSAVerifier
 import com.nimbusds.jose.crypto.RSASSAVerifier
+import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.RSAKey
 import eu.europa.ec.eudi.openid4vci.IssuedCredential
 import eu.europa.ec.eudi.openid4vci.SubmissionOutcome
+import eu.europa.ec.eudi.sdjwt.SdJwtFactory
+import eu.europa.ec.eudi.sdjwt.SdJwtIssuer
 import eu.europa.ec.eudi.sdjwt.SdJwtVerifier
 import eu.europa.ec.eudi.sdjwt.asJwtVerifier
+import eu.europa.ec.eudi.sdjwt.nimbus
 import eu.europa.ec.eudi.wallet.document.DocumentId
 import eu.europa.ec.eudi.wallet.document.DocumentManager
 import eu.europa.ec.eudi.wallet.document.StoreDocumentResult
 import eu.europa.ec.eudi.wallet.document.UnsignedDocument
 import eu.europa.ec.eudi.wallet.issue.openid4vci.IssueEvent.Companion.documentFailed
 import eu.europa.ec.eudi.wallet.logging.Logger
+import eu.europa.ec.eudi.wallet.util.CBOR
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -97,15 +104,18 @@ internal class ProcessResponse(
 
                     val headerString = credential.credential.split(".").first()
                     val headerJson = JSONObject(String(Base64.getUrlDecoder().decode(headerString)))
-                    val keyString = headerJson.getJSONArray("x5c").getString(0)
+                    val keyString = headerJson.getJSONArray("x5c").getString(0).replace("\n", "")
 
-                    val key = """-----BEGIN CERTIFICATE-----MIICeTCCAiCgAwIBAgIUB5E9QVZtmUYcDtCjKB/H3VQv72gwCgYIKoZIzj0EAwIwgYgxCzAJBgNVBAYTAkRFMQ8wDQYDVQQHDAZCZXJsaW4xHTAbBgNVBAoMFEJ1bmRlc2RydWNrZXJlaSBHbWJIMREwDwYDVQQLDAhUIENTIElERTE2MDQGA1UEAwwtU1BSSU5EIEZ1bmtlIEVVREkgV2FsbGV0IFByb3RvdHlwZSBJc3N1aW5nIENBMB4XDTI0MDUzMTA2NDgwOVoXDTM0MDUyOTA2NDgwOVowgYgxCzAJBgNVBAYTAkRFMQ8wDQYDVQQHDAZCZXJsaW4xHTAbBgNVBAoMFEJ1bmRlc2RydWNrZXJlaSBHbWJIMREwDwYDVQQLDAhUIENTIElERTE2MDQGA1UEAwwtU1BSSU5EIEZ1bmtlIEVVREkgV2FsbGV0IFByb3RvdHlwZSBJc3N1aW5nIENBMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYGzdwFDnc7+Kn5ibAvCOM8ke77VQxqfMcwZL8IaIA+WCROcCfmY/giH92qMru5p/kyOivE0RC/IbdMONvDoUyaNmMGQwHQYDVR0OBBYEFNRWGMCJOOgOWIQYyXZiv6u7xZC+MB8GA1UdIwQYMBaAFNRWGMCJOOgOWIQYyXZiv6u7xZC+MBIGA1UdEwEB/wQIMAYBAf8CAQAwDgYDVR0PAQH/BAQDAgGGMAoGCCqGSM49BAMCA0cAMEQCIGEm7wkZKHt/atb4MdFnXW6yrnwMUT2u136gdtl10Y6hAiBuTFqvVYth1rbxzCP0xWZHmQK9kVyxn8GPfX27EIzzsw==-----END CERTIFICATE-----"""
+                    val pemKey = "-----BEGIN CERTIFICATE-----\n" +
+                            "${keyString}\n" +
+                            "-----END CERTIFICATE-----"
 
                     val certificateFactory: CertificateFactory = CertificateFactory.getInstance("X.509")
-                    val certificate = certificateFactory.generateCertificate(ByteArrayInputStream(key.toByteArray())) as X509Certificate
+                    val certificate =
+                        certificateFactory.generateCertificate(ByteArrayInputStream(pemKey.toByteArray())) as X509Certificate
 
-                    val rsaKey = RSAKey.parse(certificate)
-                    val jwtSignatureVerifier = RSASSAVerifier(rsaKey).asJwtVerifier()
+                    val ecKey = ECKey.parse(certificate)
+                    val jwtSignatureVerifier = ECDSAVerifier(ecKey).asJwtVerifier()
 
                     CoroutineScope(Dispatchers.IO).launch {
                         val verifiedIssuanceSdJwt = SdJwtVerifier.verifyIssuance(
@@ -117,8 +127,7 @@ internal class ProcessResponse(
                         documentManager.storeIssuedDocument(
                             unsignedDocument,
                             credential.credential.toByteArray()
-                        )
-                            .notifyListener(unsignedDocument)
+                        ).notifyListener(unsignedDocument)
                     }
                 } catch (e: Throwable) {
                     documentManager.deleteDocumentById(unsignedDocument.id)
