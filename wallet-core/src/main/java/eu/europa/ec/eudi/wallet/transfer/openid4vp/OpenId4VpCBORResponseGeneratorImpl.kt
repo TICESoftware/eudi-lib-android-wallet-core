@@ -73,6 +73,8 @@ class OpenId4VpCBORResponseGeneratorImpl(
         this.readerTrustStore = readerTrustStore
     }
 
+    internal fun getOpenid4VpX509CertificateTrust() = openid4VpX509CertificateTrust
+
     private val secureAreaRepository: SecureAreaRepository by lazy {
         SecureAreaRepository().apply {
             addImplementation(secureArea)

@@ -5,15 +5,23 @@ import eu.europa.ec.eudi.iso18013.transfer.RequestedDocumentData
 import eu.europa.ec.eudi.iso18013.transfer.ResponseResult
 import eu.europa.ec.eudi.iso18013.transfer.readerauth.ReaderTrustStore
 import eu.europa.ec.eudi.iso18013.transfer.response.Request
-import eu.europa.ec.eudi.iso18013.transfer.response.ResponseGenerator
 
 class OpenId4VpSdJwtAndMDocGenerator(
     private val mDocGenerator: OpenId4VpCBORResponseGeneratorImpl,
     private val sdJwtGenerator: OpenId4VpSdJwtResponseGeneratorImpl
 ) {
+    private enum class FormatState {
+        Cbor,
+        SdJwt
+    }
+
+    private var formatState: FormatState = FormatState.Cbor
 
     fun createResponse(disclosedDocuments: DisclosedDocuments): ResponseResult {
-        return mDocGenerator.createResponse(disclosedDocuments)
+        return when (formatState) {
+            FormatState.Cbor -> mDocGenerator.createResponse(disclosedDocuments)
+            FormatState.SdJwt -> sdJwtGenerator.createResponse(disclosedDocuments)
+        }
     }
 
     fun setReaderTrustStore(readerTrustStore: ReaderTrustStore) {
@@ -21,16 +29,21 @@ class OpenId4VpSdJwtAndMDocGenerator(
         mDocGenerator.setReaderTrustStore(readerTrustStore)
     }
 
-    internal fun getOpenid4VpX509CertificateTrust() = openid4VpX509CertificateTrust
+    internal fun getOpenid4VpX509CertificateTrust() = when (formatState) {
+        FormatState.Cbor -> mDocGenerator.getOpenid4VpX509CertificateTrust()
+        FormatState.SdJwt -> sdJwtGenerator.getOpenid4VpX509CertificateTrust()
+    }
 
 
     fun parseRequest(request: Request): RequestedDocumentData {
-        when (request) {
+        return when (request) {
             is OpenId4VpRequest -> {
+                formatState = FormatState.Cbor
                 mDocGenerator.parseRequest(request)
             }
 
             is OpenId4VpSdJwtRequest -> {
+                formatState = FormatState.SdJwt
                 sdJwtGenerator.parseRequest(request)
             }
 
