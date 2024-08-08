@@ -23,7 +23,20 @@ import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.util.Base64URL
 import eu.europa.ec.eudi.iso18013.transfer.TransferEvent
 import eu.europa.ec.eudi.iso18013.transfer.response.SessionTranscriptBytes
-import eu.europa.ec.eudi.openid4vp.*
+import eu.europa.ec.eudi.openid4vp.Consensus
+import eu.europa.ec.eudi.openid4vp.DefaultHttpClientFactory
+import eu.europa.ec.eudi.openid4vp.DispatchOutcome
+import eu.europa.ec.eudi.openid4vp.JarmConfiguration
+import eu.europa.ec.eudi.openid4vp.JwkSetSource
+import eu.europa.ec.eudi.openid4vp.PreregisteredClient
+import eu.europa.ec.eudi.openid4vp.Resolution
+import eu.europa.ec.eudi.openid4vp.ResolvedRequestObject
+import eu.europa.ec.eudi.openid4vp.ResponseMode
+import eu.europa.ec.eudi.openid4vp.SiopOpenId4VPConfig
+import eu.europa.ec.eudi.openid4vp.SiopOpenId4Vp
+import eu.europa.ec.eudi.openid4vp.SupportedClientIdScheme
+import eu.europa.ec.eudi.openid4vp.VpToken
+import eu.europa.ec.eudi.openid4vp.asException
 import eu.europa.ec.eudi.prex.DescriptorMap
 import eu.europa.ec.eudi.prex.Id
 import eu.europa.ec.eudi.prex.JsonPath
@@ -38,7 +51,7 @@ import eu.europa.ec.eudi.wallet.transfer.openid4vp.responseGenerator.OpenId4VpRe
 import eu.europa.ec.eudi.wallet.util.CBOR
 import eu.europa.ec.eudi.wallet.util.wrappedWithContentNegotiation
 import eu.europa.ec.eudi.wallet.util.wrappedWithLogging
-import io.ktor.client.*
+import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -47,7 +60,8 @@ import org.bouncycastle.util.encoders.Hex
 import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
-import java.util.*
+import java.util.Base64
+import java.util.UUID
 import java.util.concurrent.Executor
 
 /**
@@ -195,35 +209,30 @@ class OpenId4vpManager(
                                     is ResolvedRequestObject.OpenId4VPAuthorization -> {
                                         logger?.d(TAG, "OpenId4VPAuthorization Request received")
 
-                                        val format =
-                                            requestObject.presentationDefinition.inputDescriptors.first().format?.json //TODO Format Type nutzen
-                                        when (format) {
+                                        val format = requestObject.presentationDefinition.inputDescriptors.first().format?.jsonObject()?.keys?.first() //TODO Format Type nutzen
+                                        val request = when (format) {
                                             "mso_mdoc" -> {
-                                                val request = OpenId4VpRequest(
+                                                OpenId4VpRequest(
                                                     requestObject,
                                                     requestObject.toSessionTranscript()
-                                                )
-                                                onResultUnderExecutor(
-                                                    TransferEvent.RequestReceived(
-                                                        responseGenerator.parseRequest(request),
-                                                        request
-                                                    )
                                                 )
                                             }
 
                                             "vc+sd-jwt" -> {
-                                                val request = OpenId4VpSdJwtRequest(requestObject)
-                                                onResultUnderExecutor(
-                                                    TransferEvent.RequestReceived(
-                                                        responseGenerator.parseRequest(request),
-                                                        request
-                                                    )
-                                                )                                            }
+                                                OpenId4VpSdJwtRequest(requestObject)
+                                            }
 
                                             else -> {
                                                 throw NotImplementedError(message = "Not supported: ${format}")
                                             }
                                         }
+
+                                        onResultUnderExecutor(
+                                            TransferEvent.RequestReceived(
+                                                responseGenerator.parseRequest(request),
+                                                request
+                                            )
+                                        )
                                     }
 
                                     is ResolvedRequestObject.SiopAuthentication -> {

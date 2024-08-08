@@ -43,7 +43,7 @@ class OpenId4VpSdJwtResponseGeneratorImpl(
         val inputDescriptors =
             request.openId4VPAuthorization.presentationDefinition.inputDescriptors
                 .filter { inputDescriptor ->
-                    inputDescriptor.format?.jsonObject()?.containsKey("vc+sd-jwt") == true
+                    inputDescriptor.format?.json?.contains("vc+sd-jwt") == true
                 }
 
         if (inputDescriptors.isEmpty()) {
