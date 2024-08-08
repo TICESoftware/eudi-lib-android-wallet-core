@@ -21,6 +21,8 @@ import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.crypto.ECDSASigner
 import com.nimbusds.jose.crypto.ECDSAVerifier
 import com.nimbusds.jose.jwk.ECKey
+import eu.europa.ec.eudi.iso18013.transfer.DisclosedDocument
+import eu.europa.ec.eudi.iso18013.transfer.DisclosedDocuments
 import eu.europa.ec.eudi.sdjwt.SdJwt
 import eu.europa.ec.eudi.sdjwt.SdJwtDigest
 import eu.europa.ec.eudi.sdjwt.SdJwtFactory
@@ -29,6 +31,7 @@ import eu.europa.ec.eudi.sdjwt.SdJwtVerifier
 import eu.europa.ec.eudi.sdjwt.asJwtVerifier
 import eu.europa.ec.eudi.sdjwt.nimbus
 import eu.europa.ec.eudi.sdjwt.serialize
+import eu.europa.ec.eudi.sdjwt.serializeWithKeyBinding
 import eu.europa.ec.eudi.wallet.documentsTest.util.BaseTest
 import eu.europa.ec.eudi.wallet.documentsTest.util.CBORTestUtil
 import eu.europa.ec.eudi.wallet.documentsTest.util.Constants.ADMINISTRATIVE_NUMBER
@@ -319,6 +322,10 @@ class MDLAllFieldsTest : BaseTest() {
             credentialString
         ).getOrThrow()
 
-        SdJwt.Presentation(verifiedIssuanceSdJwt.jwt, verifiedIssuanceSdJwt.disclosures)
+        val presentationSdJwt = SdJwt.Presentation(verifiedIssuanceSdJwt.jwt, verifiedIssuanceSdJwt.disclosures)
+
+        val temp = presentationSdJwt.serializeWithKeyBinding() {  }
+
+        println("$temp")
     }
 }

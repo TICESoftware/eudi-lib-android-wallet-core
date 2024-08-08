@@ -209,7 +209,8 @@ class OpenId4vpManager(
                                     is ResolvedRequestObject.OpenId4VPAuthorization -> {
                                         logger?.d(TAG, "OpenId4VPAuthorization Request received")
 
-                                        val format = requestObject.presentationDefinition.inputDescriptors.first().format?.jsonObject()?.keys?.first() //TODO Format Type nutzen
+                                        val format =
+                                            requestObject.presentationDefinition.inputDescriptors.first().format?.jsonObject()?.keys?.first() //TODO Format Type nutzen
                                         val request = when (format) {
                                             "mso_mdoc" -> {
                                                 OpenId4VpRequest(
@@ -278,34 +279,20 @@ class OpenId4vpManager(
                 when (resolvedRequestObject) {
                     is ResolvedRequestObject.OpenId4VPAuthorization -> {
 
-                        val vpToken =
-                            Base64.getUrlEncoder().withoutPadding()
-                                .encodeToString(deviceResponse)
-                        logger?.d(TAG, "VpToken: $vpToken")
+                        val vpTokenConsensus = when (responseGenerator.formatState) {
+                            OpenId4VpResponseGeneratorDelegator.FormatState.Cbor -> {
+                                mDocVPTokenConsensus(deviceResponse, resolvedRequestObject)
+                            }
 
-                        val presentationDefinition =
-                            (resolvedRequestObject).presentationDefinition
-                        val consensus = Consensus.PositiveConsensus.VPTokenConsensus(
-                            VpToken.MsoMdoc(
-                                vpToken,
-                                Base64URL.encode(mdocGeneratedNonce),
-                            ),
-                            presentationSubmission = PresentationSubmission(
-                                id = Id(UUID.randomUUID().toString()),
-                                definitionId = presentationDefinition.id,
-                                presentationDefinition.inputDescriptors.map { inputDescriptor ->
-                                    DescriptorMap(
-                                        inputDescriptor.id,
-                                        "mso_mdoc",
-                                        path = JsonPath.jsonPath("$")!!
-                                    )
-                                }
-                            )
-                        )
+                            OpenId4VpResponseGeneratorDelegator.FormatState.SdJwt -> {
+                                sdJwtVPTokenConsensus(deviceResponse, resolvedRequestObject)
+                            }
+                        }
+
                         runCatching {
                             siopOpenId4Vp.dispatch(
                                 resolvedRequestObject,
-                                consensus
+                                vpTokenConsensus
                             )
                         }.onSuccess { dispatchOutcome ->
                             when (dispatchOutcome) {
@@ -344,6 +331,63 @@ class OpenId4vpManager(
                 }
             }
         }
+    }
+
+    private fun mDocVPTokenConsensus(
+        deviceResponse: ByteArray,
+        resolvedRequestObject: ResolvedRequestObject.OpenId4VPAuthorization
+    ): Consensus.PositiveConsensus.VPTokenConsensus {
+        val vpToken =
+            Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(deviceResponse)
+        logger?.d(TAG, "VpToken: $vpToken")
+
+        val presentationDefinition = resolvedRequestObject.presentationDefinition
+        return Consensus.PositiveConsensus.VPTokenConsensus(
+            VpToken.MsoMdoc(
+                vpToken,
+                Base64URL.encode(mdocGeneratedNonce),
+            ),
+            presentationSubmission = PresentationSubmission(
+                id = Id(UUID.randomUUID().toString()),
+                definitionId = presentationDefinition.id,
+                presentationDefinition.inputDescriptors.map { inputDescriptor ->
+                    DescriptorMap(
+                        inputDescriptor.id,
+                        "mso_mdoc",
+                        path = JsonPath.jsonPath("$")!!
+                    )
+                }
+            )
+        )
+    }
+
+    private fun sdJwtVPTokenConsensus(
+        deviceResponse: ByteArray,
+        resolvedRequestObject: ResolvedRequestObject.OpenId4VPAuthorization
+    ): Consensus.PositiveConsensus.VPTokenConsensus {
+        val vpToken =
+            Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(deviceResponse)
+        logger?.d(TAG, "VpToken: $vpToken")
+
+        val presentationDefinition = resolvedRequestObject.presentationDefinition
+        return Consensus.PositiveConsensus.VPTokenConsensus(
+            VpToken.Generic(
+                vpToken,
+            ),
+            presentationSubmission = PresentationSubmission(
+                id = Id(UUID.randomUUID().toString()),
+                definitionId = presentationDefinition.id,
+                presentationDefinition.inputDescriptors.map { inputDescriptor ->
+                    DescriptorMap(
+                        inputDescriptor.id,
+                        "vc+sd-jwt",
+                        path = JsonPath.jsonPath("$")!!
+                    )
+                }
+            )
+        )
     }
 
     /**

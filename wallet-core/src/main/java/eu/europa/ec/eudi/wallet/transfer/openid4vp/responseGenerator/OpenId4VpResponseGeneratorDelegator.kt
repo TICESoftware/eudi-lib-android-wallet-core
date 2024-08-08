@@ -18,12 +18,13 @@ class OpenId4VpResponseGeneratorDelegator(
     private val mDocGenerator: OpenId4VpCBORResponseGeneratorImpl,
     private val sdJwtGenerator: OpenId4VpSdJwtResponseGeneratorImpl
 ) {
-    private enum class FormatState {
+    enum class FormatState {
         Cbor,
         SdJwt
     }
 
-    private var formatState: FormatState = FormatState.Cbor
+    var formatState: FormatState = FormatState.Cbor
+        private set
 
     fun createResponse(disclosedDocuments: DisclosedDocuments): ResponseResult {
         return when (formatState) {
