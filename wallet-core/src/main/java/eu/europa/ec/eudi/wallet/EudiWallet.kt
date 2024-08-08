@@ -36,8 +36,7 @@ import eu.europa.ec.eudi.wallet.internal.getCertificate
 import eu.europa.ec.eudi.wallet.internal.mainExecutor
 import eu.europa.ec.eudi.wallet.issue.openid4vci.*
 import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4VpCBORResponse
-import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4VpCBORResponseGeneratorImpl
-import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4VpSdJwtAndMDocGenerator
+import eu.europa.ec.eudi.wallet.transfer.openid4vp.responseGenerator.OpenId4VpResponseGeneratorDelegator
 import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4vpManager
 import eu.europa.ec.eudi.wallet.util.DefaultNfcEngagementService
 import java.security.cert.X509Certificate
@@ -722,9 +721,9 @@ object EudiWallet {
         }
     }
 
-    private val openId4VpCBORResponseGenerator: OpenId4VpSdJwtAndMDocGenerator by lazy {
+    private val openId4VpCBORResponseGenerator: OpenId4VpResponseGeneratorDelegator by lazy {
         requireInit {
-            OpenId4VpSdJwtAndMDocGenerator.Builder(context)
+            OpenId4VpResponseGeneratorDelegator.Builder(context)
                 .apply {
                     _config.trustedReaderCertificates?.let {
                         readerTrustStore = ReaderTrustStore.getDefault(it)

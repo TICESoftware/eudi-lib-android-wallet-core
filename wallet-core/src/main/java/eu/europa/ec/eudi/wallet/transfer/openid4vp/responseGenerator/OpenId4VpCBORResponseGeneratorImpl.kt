@@ -14,7 +14,7 @@
  *  limitations under the License.
  */
 
-package eu.europa.ec.eudi.wallet.transfer.openid4vp
+package eu.europa.ec.eudi.wallet.transfer.openid4vp.responseGenerator
 
 import android.content.Context
 import com.android.identity.android.securearea.AndroidKeystoreSecureArea
@@ -40,6 +40,8 @@ import eu.europa.ec.eudi.wallet.internal.Openid4VpX509CertificateTrust
 import eu.europa.ec.eudi.wallet.logging.Logger
 import eu.europa.ec.eudi.wallet.logging.e
 import eu.europa.ec.eudi.wallet.logging.i
+import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4VpCBORResponse
+import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4VpRequest
 
 private const val TAG = "OpenId4VpCBORResponseGe"
 

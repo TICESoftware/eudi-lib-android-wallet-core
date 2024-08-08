@@ -1,4 +1,4 @@
-package eu.europa.ec.eudi.wallet.transfer.openid4vp
+package eu.europa.ec.eudi.wallet.transfer.openid4vp.responseGenerator
 
 import com.android.identity.android.securearea.AndroidKeystoreSecureArea
 import com.android.identity.storage.StorageEngine
@@ -16,6 +16,7 @@ import eu.europa.ec.eudi.iso18013.transfer.response.SessionTranscriptBytes
 import eu.europa.ec.eudi.openid4vp.legalName
 import eu.europa.ec.eudi.wallet.internal.Openid4VpX509CertificateTrust
 import eu.europa.ec.eudi.wallet.logging.Logger
+import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4VpSdJwtRequest
 
 class OpenId4VpSdJwtResponseGeneratorImpl(
     private val documentsResolver: DocumentsResolver,
@@ -31,8 +32,9 @@ class OpenId4VpSdJwtResponseGeneratorImpl(
         TODO("Not yet implemented")
     }
 
-    override fun setReaderTrustStore(readerTrustStore: ReaderTrustStore): ResponseGenerator<OpenId4VpSdJwtRequest> {
-        TODO("Not yet implemented")
+    override fun setReaderTrustStore(readerTrustStore: ReaderTrustStore) = apply {
+        openid4VpX509CertificateTrust.setReaderTrustStore(readerTrustStore)
+        this.readerTrustStore = readerTrustStore
     }
 
     internal fun getOpenid4VpX509CertificateTrust() = openid4VpX509CertificateTrust

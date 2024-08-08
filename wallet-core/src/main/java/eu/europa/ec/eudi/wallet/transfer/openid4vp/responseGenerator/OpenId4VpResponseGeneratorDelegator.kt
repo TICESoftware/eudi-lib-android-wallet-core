@@ -1,4 +1,4 @@
-package eu.europa.ec.eudi.wallet.transfer.openid4vp
+package eu.europa.ec.eudi.wallet.transfer.openid4vp.responseGenerator
 
 import android.content.Context
 import com.android.identity.android.securearea.AndroidKeystoreSecureArea
@@ -11,8 +11,10 @@ import eu.europa.ec.eudi.iso18013.transfer.ResponseResult
 import eu.europa.ec.eudi.iso18013.transfer.readerauth.ReaderTrustStore
 import eu.europa.ec.eudi.iso18013.transfer.response.Request
 import eu.europa.ec.eudi.wallet.logging.Logger
+import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4VpRequest
+import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4VpSdJwtRequest
 
-class OpenId4VpSdJwtAndMDocGenerator(
+class OpenId4VpResponseGeneratorDelegator(
     private val mDocGenerator: OpenId4VpCBORResponseGeneratorImpl,
     private val sdJwtGenerator: OpenId4VpSdJwtResponseGeneratorImpl
 ) {
@@ -73,7 +75,7 @@ class OpenId4VpSdJwtAndMDocGenerator(
         fun readerTrustStore(readerTrustStore: ReaderTrustStore) =
             apply { this.readerTrustStore = readerTrustStore }
 
-        fun build(): OpenId4VpSdJwtAndMDocGenerator {
+        fun build(): OpenId4VpResponseGeneratorDelegator {
             return documentsResolver?.let { documentsResolver ->
                 val openId4VpCBORResponseGeneratorImpl = OpenId4VpCBORResponseGeneratorImpl(
                     documentsResolver,
@@ -93,7 +95,7 @@ class OpenId4VpSdJwtAndMDocGenerator(
                     readerTrustStore?.let { setReaderTrustStore(it) }
                 }
 
-                OpenId4VpSdJwtAndMDocGenerator(
+                OpenId4VpResponseGeneratorDelegator(
                     openId4VpCBORResponseGeneratorImpl,
                     openId4VpSdJwtResponseGeneratorImpl
                 ).apply {

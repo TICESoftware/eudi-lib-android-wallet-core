@@ -34,6 +34,7 @@ import eu.europa.ec.eudi.wallet.logging.Logger
 import eu.europa.ec.eudi.wallet.logging.d
 import eu.europa.ec.eudi.wallet.logging.e
 import eu.europa.ec.eudi.wallet.logging.i
+import eu.europa.ec.eudi.wallet.transfer.openid4vp.responseGenerator.OpenId4VpResponseGeneratorDelegator
 import eu.europa.ec.eudi.wallet.util.CBOR
 import eu.europa.ec.eudi.wallet.util.wrappedWithContentNegotiation
 import eu.europa.ec.eudi.wallet.util.wrappedWithLogging
@@ -127,7 +128,7 @@ import java.util.concurrent.Executor
 class OpenId4vpManager(
     context: Context,
     openId4VpConfig: OpenId4VpConfig,
-    val responseGenerator: OpenId4VpSdJwtAndMDocGenerator,
+    val responseGenerator: OpenId4VpResponseGeneratorDelegator,
 ) : TransferEvent.Listenable {
 
     var logger: Logger? = null
