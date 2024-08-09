@@ -39,6 +39,8 @@ import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4VpCBORResponse
 import eu.europa.ec.eudi.wallet.transfer.openid4vp.responseGenerator.OpenId4VpResponseGeneratorDelegator
 import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4vpManager
 import eu.europa.ec.eudi.wallet.util.DefaultNfcEngagementService
+import eu.europa.ec.eudi.wallet.keystore.KeyGenerator
+import eu.europa.ec.eudi.wallet.keystore.KeyGeneratorImpl
 import java.security.cert.X509Certificate
 import java.util.concurrent.Executor
 
@@ -68,7 +70,7 @@ import java.util.concurrent.Executor
  *
  */
 @SuppressLint("StaticFieldLeak")
-object EudiWallet {
+object EudiWallet : KeyGenerator by KeyGeneratorImpl {
 
     @Volatile
     private lateinit var context: Context
