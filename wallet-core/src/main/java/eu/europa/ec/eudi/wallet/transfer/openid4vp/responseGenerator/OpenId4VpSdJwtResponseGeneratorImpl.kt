@@ -2,8 +2,13 @@ package eu.europa.ec.eudi.wallet.transfer.openid4vp.responseGenerator
 
 import com.android.identity.android.securearea.AndroidKeystoreSecureArea
 import com.android.identity.storage.StorageEngine
+import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.crypto.ECDSAVerifier
+import com.nimbusds.jose.jca.JCAContext
+import com.nimbusds.jose.jwk.AsymmetricJWK
 import com.nimbusds.jose.jwk.ECKey
+import com.nimbusds.jose.util.Base64URL
 import eu.europa.ec.eudi.iso18013.transfer.DisclosedDocuments
 import eu.europa.ec.eudi.iso18013.transfer.DocItem
 import eu.europa.ec.eudi.iso18013.transfer.DocRequest
@@ -13,10 +18,13 @@ import eu.europa.ec.eudi.iso18013.transfer.RequestDocument
 import eu.europa.ec.eudi.iso18013.transfer.RequestedDocumentData
 import eu.europa.ec.eudi.iso18013.transfer.ResponseResult
 import eu.europa.ec.eudi.iso18013.transfer.readerauth.ReaderTrustStore
+import eu.europa.ec.eudi.iso18013.transfer.response.DeviceResponse
 import eu.europa.ec.eudi.iso18013.transfer.response.ResponseGenerator
 import eu.europa.ec.eudi.iso18013.transfer.response.SessionTranscriptBytes
 import eu.europa.ec.eudi.openid4vp.legalName
+import eu.europa.ec.eudi.sdjwt.HashAlgorithm
 import eu.europa.ec.eudi.sdjwt.JwtAndClaims
+import eu.europa.ec.eudi.sdjwt.KeyBindingSigner
 import eu.europa.ec.eudi.sdjwt.SdJwt
 import eu.europa.ec.eudi.sdjwt.SdJwtVerifier
 import eu.europa.ec.eudi.sdjwt.asJwsJsonObject
@@ -62,12 +70,22 @@ class OpenId4VpSdJwtResponseGeneratorImpl(
             }
 
             val presentationSdJwt = SdJwt.Presentation(sdJwt.jwt, disclosures)
+//            val string = presentationSdJwt.serializeWithKeyBinding(
+//                jwtSerializer = { it.first },
+//                hashAlgorithm = HashAlgorithm.SHA_256,
+//                keyBindingSigner = object: KeyBindingSigner {
+//                    override val signAlgorithm: JWSAlgorithm = JWSAlgorithm.ES256
+//                    override val publicKey: AsymmetricJWK = holderKey.toPublicJWK()
+//                    override fun getJCAContext(): JCAContext = actualSigner.jcaContext
+//                    override fun sign(p0: JWSHeader?, p1: ByteArray?): Base64URL = actualSigner.sign(p0, p1)
+//                },
+//                claimSetBuilderAction = {  }
+//            )
 
-
-            return@runBlocking ResponseResult.Success(SdJwtResponse(""))
+            return@runBlocking ResponseResult.Success(DeviceResponse("string".toByteArray()))
         }
 
-        return ResponseResult.Success(SdJwtResponse(""))
+        return ResponseResult.Success(DeviceResponse("error".toByteArray()))
     }
 
     override fun setReaderTrustStore(readerTrustStore: ReaderTrustStore) = apply {
@@ -81,7 +99,7 @@ class OpenId4VpSdJwtResponseGeneratorImpl(
         val inputDescriptors =
             request.openId4VPAuthorization.presentationDefinition.inputDescriptors
                 .filter { inputDescriptor ->
-                    inputDescriptor.format?.json?.contains("vc+sd-jwt") == true
+                    inputDescriptor.format?.json?.contains("vc_sd_jwt") == true
                 }
 
         if (inputDescriptors.isEmpty()) {
@@ -94,6 +112,7 @@ class OpenId4VpSdJwtResponseGeneratorImpl(
             inputDescriptor.id.value.trim() to inputDescriptor.constraints.fields()
                 .mapNotNull { fieldConstraint ->
                     val path = fieldConstraint.paths.first().value
+
                     Regex("\\[\"\\$\\.(.*?)\"\\]").find(path)
                         ?.let { matchResult ->
                             val elementIdentifier = matchResult.value

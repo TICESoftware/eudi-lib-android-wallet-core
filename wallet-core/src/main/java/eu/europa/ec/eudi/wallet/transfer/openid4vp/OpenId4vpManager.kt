@@ -219,7 +219,7 @@ class OpenId4vpManager(
                                                 )
                                             }
 
-                                            "vc+sd-jwt" -> {
+                                            "vc_sd_jwt" -> {
                                                 OpenId4VpSdJwtRequest(requestObject)
                                             }
 
@@ -382,7 +382,7 @@ class OpenId4vpManager(
                 presentationDefinition.inputDescriptors.map { inputDescriptor ->
                     DescriptorMap(
                         inputDescriptor.id,
-                        "vc+sd-jwt",
+                        "vc_sd_jwt",
                         path = JsonPath.jsonPath("$")!!
                     )
                 }

@@ -18,18 +18,19 @@ package eu.europa.ec.eudi.wallet.documentsTest
 
 import co.nstant.`in`.cbor.model.MajorType
 import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.crypto.ECDSASigner
 import com.nimbusds.jose.crypto.ECDSAVerifier
+import com.nimbusds.jose.jca.JCAContext
+import com.nimbusds.jose.jwk.AsymmetricJWK
 import com.nimbusds.jose.jwk.ECKey
-import eu.europa.ec.eudi.iso18013.transfer.DisclosedDocument
-import eu.europa.ec.eudi.iso18013.transfer.DisclosedDocuments
+import com.nimbusds.jose.util.Base64URL
+import eu.europa.ec.eudi.sdjwt.HashAlgorithm
+import eu.europa.ec.eudi.sdjwt.KeyBindingSigner
 import eu.europa.ec.eudi.sdjwt.SdJwt
-import eu.europa.ec.eudi.sdjwt.SdJwtDigest
-import eu.europa.ec.eudi.sdjwt.SdJwtFactory
-import eu.europa.ec.eudi.sdjwt.SdJwtIssuer
 import eu.europa.ec.eudi.sdjwt.SdJwtVerifier
 import eu.europa.ec.eudi.sdjwt.asJwtVerifier
-import eu.europa.ec.eudi.sdjwt.nimbus
+import eu.europa.ec.eudi.sdjwt.present
 import eu.europa.ec.eudi.sdjwt.serialize
 import eu.europa.ec.eudi.sdjwt.serializeWithKeyBinding
 import eu.europa.ec.eudi.wallet.documentsTest.util.BaseTest
@@ -321,11 +322,24 @@ class MDLAllFieldsTest : BaseTest() {
             jwtSignatureVerifier,
             credentialString
         ).getOrThrow()
+        
+        val presentationSdJwt =
+            SdJwt.Presentation(verifiedIssuanceSdJwt.jwt, verifiedIssuanceSdJwt.disclosures)
 
-        val presentationSdJwt = SdJwt.Presentation(verifiedIssuanceSdJwt.jwt, verifiedIssuanceSdJwt.disclosures)
+        val actualSigner = ECDSASigner(ecKey)
 
-        val temp = presentationSdJwt.serializeWithKeyBinding() {  }
+        presentationSdJwt.serializeWithKeyBinding(
+            jwtSerializer = { it.first },
+            hashAlgorithm = HashAlgorithm.SHA_256,
+            keyBindingSigner = object: KeyBindingSigner {
+                override val signAlgorithm: JWSAlgorithm = JWSAlgorithm.ES256
+                override val publicKey: AsymmetricJWK = holderKey.toPublicJWK()
+                override fun getJCAContext(): JCAContext = actualSigner.jcaContext
+                override fun sign(p0: JWSHeader?, p1: ByteArray?): Base64URL = actualSigner.sign(p0, p1)
+            },
+            claimSetBuilderAction = {  }
+        )
 
-        println("$temp")
+        println("")
     }
 }
