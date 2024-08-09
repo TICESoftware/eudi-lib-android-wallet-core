@@ -2,13 +2,8 @@ package eu.europa.ec.eudi.wallet.transfer.openid4vp.responseGenerator
 
 import com.android.identity.android.securearea.AndroidKeystoreSecureArea
 import com.android.identity.storage.StorageEngine
-import com.nimbusds.jose.JWSAlgorithm
-import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.crypto.ECDSAVerifier
-import com.nimbusds.jose.jca.JCAContext
-import com.nimbusds.jose.jwk.AsymmetricJWK
 import com.nimbusds.jose.jwk.ECKey
-import com.nimbusds.jose.util.Base64URL
 import eu.europa.ec.eudi.iso18013.transfer.DisclosedDocuments
 import eu.europa.ec.eudi.iso18013.transfer.DocItem
 import eu.europa.ec.eudi.iso18013.transfer.DocRequest
@@ -22,20 +17,15 @@ import eu.europa.ec.eudi.iso18013.transfer.response.DeviceResponse
 import eu.europa.ec.eudi.iso18013.transfer.response.ResponseGenerator
 import eu.europa.ec.eudi.iso18013.transfer.response.SessionTranscriptBytes
 import eu.europa.ec.eudi.openid4vp.legalName
-import eu.europa.ec.eudi.sdjwt.HashAlgorithm
+import eu.europa.ec.eudi.sdjwt.JsonPointer
 import eu.europa.ec.eudi.sdjwt.JwtAndClaims
-import eu.europa.ec.eudi.sdjwt.KeyBindingSigner
 import eu.europa.ec.eudi.sdjwt.SdJwt
 import eu.europa.ec.eudi.sdjwt.SdJwtVerifier
-import eu.europa.ec.eudi.sdjwt.asJwsJsonObject
 import eu.europa.ec.eudi.sdjwt.asJwtVerifier
 import eu.europa.ec.eudi.sdjwt.present
-import eu.europa.ec.eudi.sdjwt.serialize
-import eu.europa.ec.eudi.sdjwt.serializeWithKeyBinding
 import eu.europa.ec.eudi.wallet.internal.Openid4VpX509CertificateTrust
 import eu.europa.ec.eudi.wallet.logging.Logger
 import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4VpSdJwtRequest
-import io.ktor.util.Identity.decode
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
@@ -55,21 +45,19 @@ class OpenId4VpSdJwtResponseGeneratorImpl(
 
     data class SdJwtResponse(
         val value: String
-    ): eu.europa.ec.eudi.iso18013.transfer.response.Response
+    ) : eu.europa.ec.eudi.iso18013.transfer.response.Response
 
-    override fun createResponse(disclosedDocuments: DisclosedDocuments): ResponseResult {
-        runBlocking {
-            val disclosedDocument = disclosedDocuments.documents.first()
+    override fun createResponse(disclosedDocuments: DisclosedDocuments) = runBlocking {
+        val disclosedDocument = disclosedDocuments.documents.first()
 
-            val sdJwt = getSdJwt() //TODO get sdjwt from disclosedDocument
+        val sdJwt = getSdJwt() //TODO get sdjwt from disclosedDocument
 
-            val disclosures = disclosedDocument.selectedDocItems.mapNotNull { docItem ->
-                sdJwt.disclosures.find { disclosure ->
-                    docItem.elementIdentifier == disclosure.claim().first
-                }
-            }
+        val jsonPointer = disclosedDocument.docRequest.requestItems.mapNotNull { item ->
+            JsonPointer.parse(item.elementIdentifier)
+        }.toSet()
 
-            val presentationSdJwt = SdJwt.Presentation(sdJwt.jwt, disclosures)
+        val presentationSdJwt = sdJwt.present(jsonPointer)
+
 //            val string = presentationSdJwt.serializeWithKeyBinding(
 //                jwtSerializer = { it.first },
 //                hashAlgorithm = HashAlgorithm.SHA_256,
@@ -82,10 +70,7 @@ class OpenId4VpSdJwtResponseGeneratorImpl(
 //                claimSetBuilderAction = {  }
 //            )
 
-            return@runBlocking ResponseResult.Success(DeviceResponse("string".toByteArray()))
-        }
-
-        return ResponseResult.Success(DeviceResponse("error".toByteArray()))
+        return@runBlocking ResponseResult.Success(DeviceResponse("".toByteArray()))
     }
 
     override fun setReaderTrustStore(readerTrustStore: ReaderTrustStore) = apply {
@@ -110,19 +95,12 @@ class OpenId4VpSdJwtResponseGeneratorImpl(
 
         val requestedFields = inputDescriptors.associate { inputDescriptor ->
             inputDescriptor.id.value.trim() to inputDescriptor.constraints.fields()
-                .mapNotNull { fieldConstraint ->
-                    val path = fieldConstraint.paths.first().value
+                .map { fieldConstraint ->
+                    val elementIdentifier = fieldConstraint.paths.first().value
+                        .replace(".", "/")
+                        .drop(1)
 
-                    Regex("\\[\"\\$\\.(.*?)\"\\]").find(path)
-                        ?.let { matchResult ->
-                            val elementIdentifier = matchResult.value
-                            if (elementIdentifier.isNotBlank()) {
-                                namespace to elementIdentifier
-                            } else {
-                                null
-                            }
-                        }
-
+                    namespace to elementIdentifier
                 }.groupBy({ it.first }, { it.second })
                 .mapValues { (_, values) -> values.toList() }
                 .toMap()
