@@ -1,9 +1,17 @@
 package eu.europa.ec.eudi.wallet.transfer.openid4vp.responseGenerator
 
+import android.os.Build
+import android.security.keystore.KeyProperties
 import com.android.identity.android.securearea.AndroidKeystoreSecureArea
 import com.android.identity.storage.StorageEngine
+import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.crypto.ECDSASigner
 import com.nimbusds.jose.crypto.ECDSAVerifier
+import com.nimbusds.jose.jca.JCAContext
+import com.nimbusds.jose.jwk.AsymmetricJWK
 import com.nimbusds.jose.jwk.ECKey
+import com.nimbusds.jose.util.Base64URL
 import eu.europa.ec.eudi.iso18013.transfer.DisclosedDocuments
 import eu.europa.ec.eudi.iso18013.transfer.DocItem
 import eu.europa.ec.eudi.iso18013.transfer.DocRequest
@@ -17,13 +25,19 @@ import eu.europa.ec.eudi.iso18013.transfer.response.DeviceResponse
 import eu.europa.ec.eudi.iso18013.transfer.response.ResponseGenerator
 import eu.europa.ec.eudi.iso18013.transfer.response.SessionTranscriptBytes
 import eu.europa.ec.eudi.openid4vp.legalName
+import eu.europa.ec.eudi.sdjwt.HashAlgorithm
 import eu.europa.ec.eudi.sdjwt.JsonPointer
 import eu.europa.ec.eudi.sdjwt.JwtAndClaims
+import eu.europa.ec.eudi.sdjwt.KeyBindingSigner
 import eu.europa.ec.eudi.sdjwt.SdJwt
 import eu.europa.ec.eudi.sdjwt.SdJwtVerifier
 import eu.europa.ec.eudi.sdjwt.asJwtVerifier
 import eu.europa.ec.eudi.sdjwt.present
+import eu.europa.ec.eudi.sdjwt.serializeWithKeyBinding
 import eu.europa.ec.eudi.wallet.internal.Openid4VpX509CertificateTrust
+import eu.europa.ec.eudi.wallet.keystore.DEV_KEY_ALIAS
+import eu.europa.ec.eudi.wallet.keystore.KeyGenerator
+import eu.europa.ec.eudi.wallet.keystore.KeyGeneratorImpl
 import eu.europa.ec.eudi.wallet.logging.Logger
 import eu.europa.ec.eudi.wallet.transfer.openid4vp.OpenId4VpSdJwtRequest
 import kotlinx.coroutines.runBlocking
@@ -58,19 +72,23 @@ class OpenId4VpSdJwtResponseGeneratorImpl(
 
         val presentationSdJwt = sdJwt.present(jsonPointer)
 
-//            val string = presentationSdJwt.serializeWithKeyBinding(
-//                jwtSerializer = { it.first },
-//                hashAlgorithm = HashAlgorithm.SHA_256,
-//                keyBindingSigner = object: KeyBindingSigner {
-//                    override val signAlgorithm: JWSAlgorithm = JWSAlgorithm.ES256
-//                    override val publicKey: AsymmetricJWK = holderKey.toPublicJWK()
-//                    override fun getJCAContext(): JCAContext = actualSigner.jcaContext
-//                    override fun sign(p0: JWSHeader?, p1: ByteArray?): Base64URL = actualSigner.sign(p0, p1)
-//                },
-//                claimSetBuilderAction = {  }
-//            )
+        val ecKey = ECKey.load(KeyGeneratorImpl.getKeyStore(), DEV_KEY_ALIAS, null)
 
-        return@runBlocking ResponseResult.Success(DeviceResponse("".toByteArray()))
+        val signer = ECDSASigner(ecKey)
+
+        val string = presentationSdJwt!!.serializeWithKeyBinding(
+            jwtSerializer = { it.first },
+            hashAlgorithm = HashAlgorithm.SHA_256,
+            keyBindingSigner = object : KeyBindingSigner {
+                override val signAlgorithm: JWSAlgorithm = JWSAlgorithm.ES256
+                override val publicKey: AsymmetricJWK = ecKey.toPublicJWK()
+                override fun getJCAContext(): JCAContext = signer.jcaContext
+                override fun sign(p0: JWSHeader?, p1: ByteArray?): Base64URL = signer.sign(p0, p1)
+            },
+            claimSetBuilderAction = { }
+        )
+
+        return@runBlocking ResponseResult.Success(DeviceResponse(string.toByteArray()))
     }
 
     override fun setReaderTrustStore(readerTrustStore: ReaderTrustStore) = apply {
