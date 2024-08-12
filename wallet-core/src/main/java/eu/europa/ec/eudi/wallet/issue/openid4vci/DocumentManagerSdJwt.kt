@@ -10,17 +10,13 @@ object DocumentManagerSdJwt {
         dataStore = SdJwtDocumentDataStore(context)
     }
 
-    fun getDocumentById(id: String): SdJwtDocument? {
-        return dataStore.get(id)
+    fun storeDocument(id: String, credentials: String) {
+        dataStore.add(id, credentials)
     }
 
-    fun getAllDocuments(): List<SdJwtDocument> {
-        return dataStore.getAll()
-    }
+    fun getDocumentById(id: String) = dataStore.get(id)
 
-    fun storeDocument(id: String, credential: String) {
-        dataStore.add(id, credential)
-    }
+    fun getAllDocuments() = dataStore.getAll()
 }
 
 data class SdJwtDocument(
@@ -34,22 +30,23 @@ data class SdJwtDocument(
 private class SdJwtDocumentDataStore(
     context: Context,
 ) {
-    // WIP add persistence
     private var sharedPreferences = getEncryptedSharedPreferences(context)
-    private val documents = mutableMapOf<String, SdJwtDocument>()
 
-    fun add(id: String, credential: String) {
-        documents[id] = credential.toDocument(id)
+    fun add(id: String, credentials: String) {
+        sharedPreferences.edit().putString(PREFIX_ID + id, credentials).apply()
     }
 
-    fun get(id: String): SdJwtDocument? {
-        return documents[id]
+    fun get(id: String) = sharedPreferences.getString(PREFIX_ID + id, null)?.toDocument(id)
+
+    fun getAll() = sharedPreferences.all.filter {
+        it.key.startsWith(PREFIX_ID)
+    }.mapNotNull {
+        (it.value as? String)?.toDocument(it.key)
     }
 
-    fun getAll(): List<SdJwtDocument> {
-        return documents.values.toList()
+    private companion object {
+        private const val PREFIX_ID = "id:"
     }
-
 }
 
 private fun String.toDocument(id: String): SdJwtDocument {
