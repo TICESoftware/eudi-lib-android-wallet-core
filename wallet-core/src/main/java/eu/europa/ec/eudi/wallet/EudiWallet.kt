@@ -90,7 +90,7 @@ object EudiWallet : KeyGenerator by KeyGeneratorImpl {
     fun init(context: Context, config: EudiWalletConfig) {
         this.context = context.applicationContext
         this._config = config
-        DocumentManagerSdJwt.init(context)
+        DocumentManagerSdJwt.init(context, config.userAuthenticationRequired)
     }
 
     /**
