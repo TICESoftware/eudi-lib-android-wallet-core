@@ -6,20 +6,18 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import javax.crypto.AEADBadTagException
 
-private const val PREF_FILE_NAME = "secure_prefs"
-
 @Throws(java.security.GeneralSecurityException::class, java.io.IOException::class)
-fun getEncryptedSharedPreferences(context: Context): SharedPreferences {
+fun getEncryptedSharedPreferences(context: Context, name: String): SharedPreferences {
     val masterKey: MasterKey = MasterKey
         .Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
         .build()
 
     return try {
-        createEncryptedSharedPreferences(context, masterKey)
+        createEncryptedSharedPreferences(context, masterKey, name)
     } catch (e: AEADBadTagException) {
-        clearEncryptedSharedPreferences(context)
-        createEncryptedSharedPreferences(context, masterKey)
+        clearEncryptedSharedPreferences(context, name)
+        createEncryptedSharedPreferences(context, masterKey, name)
     }
 }
 
@@ -27,14 +25,15 @@ fun getEncryptedSharedPreferences(context: Context): SharedPreferences {
 private fun createEncryptedSharedPreferences(
     context: Context,
     masterKey: MasterKey,
+    name: String,
 ) = EncryptedSharedPreferences.create(
     context,
-    PREF_FILE_NAME,
+    name,
     masterKey,
     EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
 )
 
-private fun clearEncryptedSharedPreferences(context: Context) {
-    context.getSharedPreferences(PREF_FILE_NAME, Context.MODE_PRIVATE).edit().clear().apply()
+private fun clearEncryptedSharedPreferences(context: Context, name: String) {
+    context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().apply()
 }

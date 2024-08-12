@@ -1,6 +1,7 @@
 package eu.europa.ec.eudi.wallet.issue.openid4vci
 
 import android.content.Context
+import eu.europa.ec.eudi.wallet.document.DocumentId
 import eu.europa.ec.eudi.wallet.util.getEncryptedSharedPreferences
 import org.json.JSONException
 import org.json.JSONObject
@@ -20,6 +21,16 @@ object DocumentManagerSdJwt {
     fun getDocumentById(id: String) = dataStore.get(id)
 
     fun getAllDocuments() = dataStore.getAll()
+
+    fun deleteDocument(documentId: DocumentId) {
+        // quick but very dirty solution (we decided to only have one document at all times)
+        deleteAllDocuments()
+    }
+
+    fun deleteAllDocuments() {
+        dataStore.deleteAll()
+    }
+
 }
 
 data class SdJwtDocument(
@@ -34,22 +45,28 @@ private class SdJwtDocumentDataStore(
     context: Context,
     val requiresUserAuth: Boolean,
 ) {
-    private var sharedPreferences = getEncryptedSharedPreferences(context)
+    private var sharedPreferences = getEncryptedSharedPreferences(context, PREF_FILE_NAME)
 
     fun add(id: String, credentials: String) {
-        sharedPreferences.edit().putString(PREFIX_ID + id, credentials).apply()
+        sharedPreferences.edit().putString(id, credentials).apply()
     }
 
-    fun get(id: String) = sharedPreferences.getString(PREFIX_ID + id, null)?.toDocument(id, requiresUserAuth)
+    fun get(id: String) = sharedPreferences.getString(id, null)?.toDocument(id, requiresUserAuth)
 
-    fun getAll() = sharedPreferences.all.filter {
-        it.key.startsWith(PREFIX_ID)
-    }.mapNotNull {
+    fun getAll() = sharedPreferences.all.mapNotNull {
         (it.value as? String)?.toDocument(it.key, requiresUserAuth)
     }
 
+    fun delete(id: String) {
+        sharedPreferences.edit().remove(id).apply()
+    }
+
+    fun deleteAll() {
+        sharedPreferences.edit().clear().apply()
+    }
+
     private companion object {
-        private const val PREFIX_ID = "id:"
+        private const val PREF_FILE_NAME = "document_manager_sdjwt_prefs"
     }
 }
 

@@ -200,7 +200,9 @@ object EudiWallet : KeyGenerator by KeyGeneratorImpl {
      * @throws IllegalStateException if [EudiWallet] is not firstly initialized via the [init] method
      */
     fun deleteDocumentById(documentId: DocumentId): DeleteDocumentResult =
-        documentManager.deleteDocumentById(documentId)
+        documentManager.deleteDocumentById(documentId).apply {
+            if (this is DeleteDocumentResult.Success) DocumentManagerSdJwt.deleteDocument(documentId)
+        }
 
     /**
      * Create an [UnsignedDocument] for the given [docType]
