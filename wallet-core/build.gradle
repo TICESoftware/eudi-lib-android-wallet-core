@@ -160,6 +160,7 @@ dependencies {
 
     //sdjwt
     api libs.eudi.lib.jvm.sdjwt.kt
+    implementation libs.security.crypto
 
     testImplementation libs.junit
     testImplementation libs.junit.jupiter.params

@@ -1,7 +1,14 @@
 package eu.europa.ec.eudi.wallet.issue.openid4vci
 
+import android.content.Context
+import eu.europa.ec.eudi.wallet.util.getEncryptedSharedPreferences
+
 object DocumentManagerSdJwt {
     private lateinit var dataStore: SdJwtDocumentDataStore
+
+    fun init(context: Context) {
+        dataStore = SdJwtDocumentDataStore(context)
+    }
 
     fun getDocumentById(id: String): SdJwtDocument? {
         return dataStore.get(id)
@@ -24,7 +31,11 @@ data class SdJwtDocument(
     val data: String,
 )
 
-private class SdJwtDocumentDataStore {
+private class SdJwtDocumentDataStore(
+    context: Context,
+) {
+    // WIP add persistence
+    private var sharedPreferences = getEncryptedSharedPreferences(context)
     private val documents = mutableMapOf<String, SdJwtDocument>()
 
     fun add(id: String, credential: String) {
