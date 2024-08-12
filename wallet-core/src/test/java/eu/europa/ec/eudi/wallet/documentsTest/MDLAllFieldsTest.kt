@@ -322,24 +322,5 @@ class MDLAllFieldsTest : BaseTest() {
             jwtSignatureVerifier,
             credentialString
         ).getOrThrow()
-        
-        val presentationSdJwt =
-            SdJwt.Presentation(verifiedIssuanceSdJwt.jwt, verifiedIssuanceSdJwt.disclosures)
-
-        val actualSigner = ECDSASigner(ecKey)
-
-        presentationSdJwt.serializeWithKeyBinding(
-            jwtSerializer = { it.first },
-            hashAlgorithm = HashAlgorithm.SHA_256,
-            keyBindingSigner = object: KeyBindingSigner {
-                override val signAlgorithm: JWSAlgorithm = JWSAlgorithm.ES256
-                override val publicKey: AsymmetricJWK = holderKey.toPublicJWK()
-                override fun getJCAContext(): JCAContext = actualSigner.jcaContext
-                override fun sign(p0: JWSHeader?, p1: ByteArray?): Base64URL = actualSigner.sign(p0, p1)
-            },
-            claimSetBuilderAction = {  }
-        )
-
-        println("")
     }
 }

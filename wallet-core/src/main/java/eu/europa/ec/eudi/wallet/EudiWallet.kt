@@ -697,6 +697,12 @@ object EudiWallet : KeyGenerator by KeyGeneratorImpl {
 
     private val transferManagerDocumentsResolver: DocumentsResolver
         get() = DocumentsResolver { req ->
+
+            //When()
+            //get sdJwt docs
+            //SdJwt filter
+
+            //Mdoc filter
             documentManager.getDocuments(Document.State.ISSUED)
                 .filterIsInstance<IssuedDocument>()
                 .filter { doc -> doc.docType == req.docType }

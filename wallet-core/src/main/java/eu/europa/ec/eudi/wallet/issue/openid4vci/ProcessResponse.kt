@@ -65,6 +65,10 @@ internal class ProcessResponse(
     }
 
     suspend fun process(response: SubmitRequest.Response) {
+        //Get UUID from mDoc
+
+        //Give UUID into sdJwt process() call
+
         response.forEach { (unsignedDocument, result) ->
             process(unsignedDocument, result)
         }
@@ -122,6 +126,8 @@ internal class ProcessResponse(
                             jwtSignatureVerifier,
                             credential.credential
                         ).getOrThrow()
+
+                    //store
 
 //                        logger?.d(TAG, "CBOR bytes: ${Hex.toHexString(cborBytes)}")
                         documentManager.storeIssuedDocument(
